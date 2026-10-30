@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FF6B35">
+<meta name="description" content="食堂雷达 · 校园食堂点评推荐：帮大学生发现食堂新菜品、避开踩雷窗口。">
+<title>食堂雷达 · 校园食堂点评推荐</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍚</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-logo">🍚</span>
+        <div class="brand-text">
+          <div class="brand-name">食堂雷达</div>
+          <div class="brand-campus" id="campusLabel">加载中…</div>
+        </div>
+      </div>
+      <button class="icon-btn" id="searchTopBtn" aria-label="搜索">🔍</button>
+    </div>
+    <div class="searchbar" id="searchBar">
+      <input id="searchInput" type="search" placeholder="搜菜品 / 窗口 / 食堂，如“黄焖鸡”" autocomplete="off">
+      <button class="text-btn" id="searchCancel">取消</button>
+    </div>
+  </header>
+
+  <main id="view" tabindex="-1"></main>
+
+  <nav class="tabbar" id="tabbar">
+    <a href="#/home" data-tab="home"><span class="tab-ico">🏠</span><span>首页</span></a>
+    <a href="#/canteens" data-tab="canteens"><span class="tab-ico">🏫</span><span>食堂</span></a>
+    <a href="#/blacklist" data-tab="blacklist"><span class="tab-ico">🚫</span><span>避雷</span></a>
+    <a href="#/me" data-tab="me"><span class="tab-ico">👤</span><span>我的</span></a>
+  </nav>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
