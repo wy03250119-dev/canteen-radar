@@ -19,6 +19,8 @@ const state = {
   likes: load(LS.likes, []),       // 用户点赞的评价 id
   cTab: 'dishes',                  // 食堂详情当前 tab
   cFilter: 'all',                  // 食堂列表筛选
+  cCampus: 'all',                  // 校区筛选
+  rTab: 'hot',                     // 榜单 tab
   draft: null,                     // 正在编辑的点评
   lastDice: null,
 };
@@ -96,10 +98,11 @@ function emptyHTML(title, sub) {
   return `<div class="empty"><span class="e-emoji">🍽️</span><div class="e-title">${title}</div><div class="e-sub">${sub || ''}</div></div>`;
 }
 
-function dishRowHTML(d) {
+function dishRowHTML(d, rank) {
   const c = C(d.canteenId), w = W(d.windowId), st = dishStats(d);
   return `
   <div class="dish-row" data-action="go-dish" data-id="${d.id}">
+    ${rank ? `<span class="rank r${rank <= 3 ? rank : 'n'}">${rank}</span>` : ''}
     <div class="dish-emoji">${d.emoji}</div>
     <div class="dish-main">
       <div class="dish-name">${d.name}${tagChips(d)}</div>
@@ -120,7 +123,7 @@ function canteenCardHTML(c) {
     <div class="cc-body">
       <div class="cc-title"><span class="cc-name">${c.name}</span>${open ? '<span class="pill open">营业中</span>' : '<span class="pill closed">已打烊</span>'}</div>
       <div class="cc-meta">${scoreHTML(c.rating)}<span>${c.rating.toFixed(1)}分</span><span class="dot">·</span><span>人均¥${c.avgPrice}</span><span class="dot">·</span><span>${c.distance}m</span></div>
-      <div class="cc-tags">${c.tags.map(t => `<span class="chip">${t}</span>`).join('')}</div>
+      <div class="cc-tags">${(CAMPUS.campuses && CAMPUS.campuses.length > 1) ? `<span class="chip campus-chip">${c.campus}</span>` : ''}${c.tags.map(t => `<span class="chip">${t}</span>`).join('')}</div>
       ${open ? crowdLevelHTML(maxCrowd) : ''}
     </div>
   </a>`;
@@ -241,13 +244,19 @@ function renderHome() {
 /* ---------- 视图：食堂列表 ---------- */
 function renderCanteens() {
   const f = state.cFilter || 'all';
+  const cc = state.cCampus || 'all';
   let list = [...CANTEENS];
+  if (cc !== 'all') list = list.filter(c => c.campus === cc);
   if (f === 'open') list = list.filter(isOpen);
   else if (f === 'rating') list.sort((a, b) => b.rating - a.rating);
   else if (f === 'dist') list.sort((a, b) => a.distance - b.distance);
   view.innerHTML = `
   <div class="section" style="margin-top:2px">
-    <div class="sec-head"><div class="sec-title"><span class="tt-emoji">🏫</span>${CAMPUS.name}食堂一览</div></div>
+    <div class="sec-head"><div class="sec-title"><span class="tt-emoji">🏫</span>${CAMPUS.name}食堂一览<span class="sec-sub">${list.length} 个</span></div></div>
+    ${(CAMPUS.campuses && CAMPUS.campuses.length > 1) ? `
+    <div class="seg" style="margin:0 0 10px">
+      ${[['all', '全部校区'], ...CAMPUS.campuses.map(x => [x, x])].map(([k, n]) => `<button data-action="campus-filter" data-v="${k}" class="${cc === k ? 'on' : ''}">${n}</button>`).join('')}
+    </div>` : ''}
     <div class="seg" style="margin:0 0 12px">
       ${[['all', '全部'], ['open', '营业中'], ['rating', '评分优先'], ['dist', '距离最近']].map(([k, n]) => `<button data-action="canteen-filter" data-v="${k}" class="${f === k ? 'on' : ''}">${n}</button>`).join('')}
     </div>
@@ -327,7 +336,7 @@ function renderDish(id) {
         <div class="dh-count">${st.count} 人评价 · 安利 ${recN} 次</div>
       </div>
     </div>
-    <div class="dh-meta"><b style="color:var(--primary-deep);font-size:15px">¥${d.price}</b><span class="dot">·</span>${c.name} ${w.name}</div>
+    <div class="dh-meta"><b style="color:var(--primary-deep);font-size:15px">¥${d.price}</b><span class="dot">·</span>${c.name} ${w.name}${d.trend ? `<span class="trend-chip ${d.trend === 'up' ? 'up' : 'down'}">${d.trend === 'up' ? '📈' : '📉'} 近7天 ${d.trendDelta > 0 ? '+' : ''}${d.trendDelta.toFixed(1)}</span>` : ''}</div>
     ${d.desc ? `<div class="dh-desc">💬 ${esc(d.desc)}</div>` : ''}
   </div>
 
@@ -414,6 +423,28 @@ function renderBlacklist() {
   <div class="disclaimer">* 以上数据为产品原型演示用虚构数据，请以食堂实际情况为准</div>`;
 }
 
+/* ---------- 视图：榜单 ---------- */
+function renderRankings() {
+  const tab = state.rTab || 'hot';
+  let list = [];
+  let sub = '';
+  if (tab === 'hot') { list = [...DISHES].sort((a, b) => b.hot - a.hot).slice(0, 10); sub = '按今日实时热度'; }
+  else if (tab === 'rating') { list = [...DISHES].sort((a, b) => b.rating - a.rating).slice(0, 10); sub = '按综合评分'; }
+  else { list = DISHES.filter(d => d.trend === 'up').sort((a, b) => (b.trendDelta || 0) - (a.trendDelta || 0)).slice(0, 10); sub = '近7天口碑上升最快'; }
+  view.innerHTML = `
+  <div class="black-stat">
+    <div class="bs-title">🏆 全校榜单</div>
+    <div class="bs-num">${DISHES.length} 道</div>
+    <div class="bs-sub">覆盖 ${CANTEENS.length} 个食堂 · ${CAMPUS.campuses.join(' / ')}</div>
+  </div>
+  <div class="seg">
+    ${[['hot', '🔥人气榜'], ['rating', '⭐评分榜'], ['rise', '🚀口碑上升榜']].map(([k, n]) => `<button data-action="rtab" data-v="${k}" class="${tab === k ? 'on' : ''}">${n}</button>`).join('')}
+  </div>
+  <div class="sec-sub" style="margin:6px 2px 10px;color:var(--ink-3)">${sub}</div>
+  ${list.length ? list.map((d, i) => dishRowHTML(d, i + 1)).join('') : emptyHTML('暂无数据', '口碑上升榜需要趋势数据')}
+  <div class="disclaimer">* 榜单按热度/评分/近7天口碑增量实时计算（演示数据）</div>`;
+}
+
 /* ---------- 视图：我的 ---------- */
 function renderMe() {
   const myRev = state.reviews.slice().reverse();
@@ -448,6 +479,11 @@ function renderMe() {
   </div>
 
   <div class="section">
+    <div class="sec-head"><div class="sec-title"><span class="tt-emoji">❤️</span>我的安利</div></div>
+    ${state.rec.length ? state.rec.map(id => D(id)).filter(Boolean).map(dishRowHTML).join('') : emptyHTML('还没有安利', '在菜品页点「安利一下」收藏好菜')}
+  </div>
+
+  <div class="section">
     <div class="sec-head"><div class="sec-title"><span class="tt-emoji">📖</span>关于食堂雷达</div></div>
     <div class="about-card">
       <b>食堂雷达</b> 是面向大学生的一站式校园食堂点评推荐工具：<br>
@@ -465,7 +501,7 @@ function renderSearch(q) {
   if (!q) { hideSearch(); return; }
   const hitD = DISHES.filter(d => (d.name + ' ' + (d.tags || []).join('') + ' ' + W(d.windowId).name + ' ' + C(d.canteenId).name).toLowerCase().includes(q));
   const hitW = WINDOWS.filter(w => (w.name + ' ' + (w.tags || []).join('') + ' ' + C(w.canteenId).name).toLowerCase().includes(q));
-  const hitC = CANTEENS.filter(c => c.name.toLowerCase().includes(q));
+  const hitC = CANTEENS.filter(c => (c.name + ' ' + (c.campus || '')).toLowerCase().includes(q));
   const total = hitD.length + hitW.length + hitC.length;
   view.innerHTML = total ? `
   ${hitD.length ? `<div class="group-label">🍽️ 菜品 <span class="sec-sub">${hitD.length}</span></div>` + hitD.slice(0, 12).map(dishRowHTML).join('') : ''}
@@ -521,8 +557,8 @@ function submitReview() {
 /* ---------- 吃什么（决策摇一摇） ---------- */
 function openDice() {
   showModal(`
-  <div class="sheet-head"><div class="sheet-title">🎲 吃什么？</div><button class="sheet-close" data-action="close-modal">✕</button></div>
-  <div class="sheet-sub">选择困难终结者 · 结合评分与你的口味偏好</div>
+  <div class="sheet-head"><div class="sheet-title">🤖 AI 推荐 · 吃什么？</div><button class="sheet-close" data-action="close-modal">✕</button></div>
+  <div class="sheet-sub">基于全校评分热度 + 你的口味偏好实时推荐 · 选择困难终结者</div>
   <div id="decResult"></div>
   <div style="display:flex;gap:8px">
     <button class="btn primary block" data-action="dice">🎲 换一个</button>
@@ -567,13 +603,14 @@ function route() {
     case 'canteens': renderCanteens(); break;
     case 'canteen': renderCanteen(arg); break;
     case 'dish': renderDish(arg); break;
+    case 'rankings': renderRankings(); break;
     case 'blacklist': renderBlacklist(); break;
     case 'me': renderMe(); break;
     default: renderHome();
   }
-  const tab = { home: 'home', canteens: 'canteens', canteen: 'canteens', blacklist: 'blacklist', me: 'me' }[name] || 'home';
+  const tab = { home: 'home', canteens: 'canteens', canteen: 'canteens', rankings: 'rankings', blacklist: 'blacklist', me: 'me' }[name] || 'home';
   document.querySelectorAll('.tabbar a').forEach(a => a.classList.toggle('on', a.dataset.tab === tab));
-  $('#campusLabel').textContent = `${CAMPUS.name} · ${openCount()}个食堂营业中`;
+  $('#campusLabel').textContent = `${CAMPUS.name}${(CAMPUS.campuses && CAMPUS.campuses.length > 1) ? ' · 双校区' : ''} · ${openCount()}个食堂营业中`;
   window.scrollTo(0, 0);
 }
 
@@ -619,6 +656,8 @@ function handleAction(action, el) {
     }
     case 'ctab': state.cTab = v; route(); break;
     case 'canteen-filter': state.cFilter = v; route(); break;
+    case 'campus-filter': state.cCampus = v; route(); break;
+    case 'rtab': state.rTab = v; route(); break;
     case 'scroll-to': { const t = document.getElementById(v); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); break; }
     case 'open-search': openSearch(); break;
     case 'cancel-search': hideSearch(); break;

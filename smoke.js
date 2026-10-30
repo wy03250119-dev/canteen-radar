@@ -21,6 +21,7 @@ global.document = {
 };
 
 const data = fs.readFileSync(path.join(dir, 'js/data.js'), 'utf8');
+const data2 = fs.readFileSync(path.join(dir, 'js/data2.js'), 'utf8');
 const app = fs.readFileSync(path.join(dir, 'js/app.js'), 'utf8');
 
 const testCode = `
@@ -35,6 +36,7 @@ DISHES.forEach(d => {
 });
 const dIds = new Set(DISHES.map(d => d.id));
 SEED_REVIEWS.forEach(r => { if (!dIds.has(r.dishId)) errors.push('评价引用了不存在的菜品: ' + r.dishId); });
+CANTEENS.forEach(c => { if (!c.campus) errors.push('食堂 ' + c.id + ' 缺少 campus 字段'); });
 
 const renderers = {
   home: () => renderHome(),
@@ -42,10 +44,11 @@ const renderers = {
   canteen: () => CANTEENS.forEach(c => { state.cTab='dishes'; renderCanteen(c.id); state.cTab='windows'; renderCanteen(c.id); state.cTab='reviews'; renderCanteen(c.id); }),
   dish: () => DISHES.forEach(d => renderDish(d.id)),
   blacklist: () => renderBlacklist(),
+  rankings: () => { state.rTab='hot'; renderRankings(); state.rTab='rating'; renderRankings(); state.rTab='rise'; renderRankings(); },
   me: () => renderMe(),
   search: () => renderSearch('鸡'),
   dice: () => { openDice(); rollDice(); rollDice(); },
-  reviewSheet: () => { openReview('d15'); setModal(reviewSheetHTML(D('d15'))); },
+  reviewSheet: () => { openReview('bd10'); setModal(reviewSheetHTML(D('bd10'))); },
 };
 for (const name of Object.keys(renderers)) {
   try { renderers[name](); console.log('ok render: ' + name); }
@@ -55,4 +58,4 @@ if (errors.length) { console.error('FAIL'); errors.forEach(e => console.error(' 
 console.log('SMOKE PASS · 食堂 ' + CANTEENS.length + ' · 窗口 ' + WINDOWS.length + ' · 菜品 ' + DISHES.length + ' · 评价 ' + SEED_REVIEWS.length);
 `;
 
-eval(data + '\n' + app + '\n' + testCode);
+eval(data + '\n' + data2 + '\n' + app + '\n' + testCode);
